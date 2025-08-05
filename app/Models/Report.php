@@ -27,4 +27,9 @@ class Report extends Model
     {
         return $this->hasMany(ReportContent::class);
     }
+
+    public function videos()
+    {
+        return $this->hasMany(ReportVideo::class);
+    }
 }

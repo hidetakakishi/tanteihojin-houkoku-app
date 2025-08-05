@@ -12,6 +12,8 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Spatie\Browsershot\Browsershot;
+use ProtoneMedia\LaravelFFMpeg\Support\FFMpeg;
+use Illuminate\Support\Facades\Log;
 
 class ReportController extends Controller
 {
@@ -123,6 +125,18 @@ class ReportController extends Controller
                         'value' => $value,
                         'image_path' => $imagePath,
                     ]);
+                }
+            }
+
+            // 複数動画の保存処理
+            if ($request->hasFile('videos')) {
+                foreach ($request->file('videos') as $videoFile) {
+                    if ($videoFile->isValid()) {
+                        $path = $videoFile->store('report_videos', 'public');
+                        $report->videos()->create([
+                            'video_path' => $path
+                        ]);
+                    }
                 }
             }
 

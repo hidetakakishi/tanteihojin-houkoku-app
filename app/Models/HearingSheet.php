@@ -15,6 +15,7 @@ class HearingSheet extends Model
         'client_name',
         'staff_name',
         'purpose',
+        'user_id',
     ];
 
     public function preinfos()
@@ -25,5 +26,10 @@ class HearingSheet extends Model
     public function items()
     {
         return $this->hasMany(HearingItem::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

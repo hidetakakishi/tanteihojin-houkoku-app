@@ -194,6 +194,28 @@
         </div>
 
         <button type="button" class="btn btn-outline-secondary" onclick="addContentItem()">調査内容の追加</button>
+
+        <hr class="my-5">
+        <h4 class="mb-3">関連動画の登録</h4>
+
+        <div class="mb-4">
+            <label for="videos">動画ファイル（複数選択可）</label>
+            <input type="file" name="videos[]" accept="video/*" class="form-control" multiple>
+
+            @if (!empty($report?->videos))
+                <div class="mt-3">
+                    @foreach ($report->videos as $index => $video)
+                        <div style="margin-bottom: 25px;">
+                            <div style="margin-bottom: 5px; font-weight: bold;">動画{{ $index + 1 }}</div>
+                                <video controls width="100%" style="max-height: 300px;">
+                                    <source src="{{ asset('storage/' . $video->video_path) }}" type="video/mp4">
+                                    ブラウザが video タグをサポートしていません。
+                                </video>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
         
         <div class="d-flex justify-content-between mt-4">
             @if(isset($report))

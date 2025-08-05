@@ -7,21 +7,36 @@ use App\Models\HearingPreinfo;
 use App\Models\HearingItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 
 class HearingSheetController extends Controller
 {
+     /**
+     * ログインユーザーに紐づくヒアリングシート一覧を表示
+     */
     public function list()
     {
-        $sheets = HearingSheet::latest()->paginate(10);
+        $user = Auth::user();
+
+        $sheets = HearingSheet::where('user_id', $user->id)
+                    ->latest()
+                    ->paginate(10);
+
         return view('hearingsheet.list', compact('sheets'));
     }
 
+   /**
+     * 個別ヒアリングシート詳細表示
+     */
     public function show($id)
     {
         $sheet = HearingSheet::with(['preinfos', 'items'])->findOrFail($id);
         return view('hearingsheet.show', compact('sheet'));
     }
-    
+
+    /**
+     * ヒアリングシートの保存
+     */
     public function store(Request $request)
     {
         // バリデーション（基本部分）
@@ -33,14 +48,15 @@ class HearingSheetController extends Controller
             'purpose' => 'required|string',
         ]);
 
-        // メイン情報を保存
-        $sheet = HearingSheet::create($request->only([
-            'interview_datetime',
-            'investigation_type',
-            'client_name',
-            'staff_name',
-            'purpose',
-        ]));
+        // メイン情報を保存（user_idを含む）
+        $sheet = HearingSheet::create([
+            'interview_datetime' => $request->input('interview_datetime'),
+            'investigation_type' => $request->input('investigation_type'),
+            'client_name' => $request->input('client_name'),
+            'staff_name' => $request->input('staff_name'),
+            'purpose' => $request->input('purpose'),
+            'user_id' => Auth::id(), // ← ログインユーザーのIDを保存
+        ]);
 
         // 事前情報（テキスト＋画像）
         if ($request->has('preinfo')) {

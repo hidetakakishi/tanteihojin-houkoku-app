@@ -5,14 +5,6 @@
     {{-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"> --}}
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <style>
-        @font-face {
-            font-family: "NotoSansJP";
-            font-weight: normal;
-            src: url("' . storage_path('fonts/NotoSansJP-Regular.ttf') . '");
-        }
-        body {
-            font-family: "NotoSansJP";
-        }
         body {
             font-family: ipag;
         }
@@ -83,6 +75,22 @@
                 @endforeach
             </div>
         @endforeach
+
+        @if(!$isPdf && $report->videos->count())
+            <div style="margin: 50px;">
+                <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 15px;">関連動画</div>
+
+                @foreach ($report->videos as $index => $video)
+                    <div style="margin-bottom: 25px;">
+                        <div style="margin-bottom: 5px; font-weight: bold;">動画{{ $index + 1 }}</div>
+                            <video controls width="100%" style="max-height: 300px;">
+                                <source src="{{ asset('storage/' . $video->video_path) }}" type="video/mp4">
+                                ブラウザが video タグをサポートしていません。
+                            </video>
+                    </div>
+                @endforeach
+            </div>
+        @endif
 
         @if(!$isPdf)
             <div style="margin-bottom: 30px;">
