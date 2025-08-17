@@ -13,6 +13,7 @@ class HearingSheet extends Model
         'interview_datetime',
         'investigation_type',
         'client_name',
+        'company_name',
         'staff_name',
         'purpose',
         'user_id',
@@ -31,5 +32,10 @@ class HearingSheet extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function report()
+    {
+        return $this->hasOne(Report::class, 'hearing_sheet_id');
     }
 }

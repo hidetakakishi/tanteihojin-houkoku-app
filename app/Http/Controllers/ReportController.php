@@ -45,17 +45,35 @@ class ReportController extends Controller
         DB::beginTransaction();
 
         try {
-            // 1. 報告書を作成（UUIDは report_key に）
+            // 会社名（プルダウン）候補のホワイトリスト
+            $allowedCompanies = [
+                '探偵法人調査司会',
+                '探偵興信所一般社団法人',
+                'トラブル相談センター',
+            ];
+
+            // 1. 報告書を作成（UUIDとアクセスキーを生成）
             $report = Report::firstOrNew([
                 'hearing_sheet_id' => $request->input('hearing_sheet_id'),
             ]);
 
             $report->staff_comment = $request->input('staff_comment');
-            $report->report_key = $report->report_key ?? (string) Str::uuid(); // 初回のみuuidを発行
+
+            // ★ 会社名を保存（候補外は null）
+            $company = $request->input('company_name');
+            $report->company_name = in_array($company, $allowedCompanies, true) ? $company : null;
+
+            // 初回作成時のみキー生成
+            if (empty($report->report_key)) {
+                $report->report_key = (string) Str::uuid();
+            }
+            if (empty($report->access_key)) {
+                $report->access_key = Str::random(8); // 例：8桁の英数字（PIN風）
+            }
+
             $report->save();
 
-            $test = $report->id;
-            // 2. 調査内容をループで作成
+            // 2. 調査内容の保存
             foreach ($request->input('content_summary', []) as $i => $summary) {
                 $contentId = $request->input('content_ids')[$i] ?? null;
 
@@ -77,12 +95,12 @@ class ReportController extends Controller
                     $result->report_content_id = $reportContent->id;
                     $result->description = $description;
 
-                    // ✅ 調査日追加
+                    // 調査日
                     $dateInput = $request->input("content_dates.$i")[$j] ?? null;
                     $result->date = $dateInput ? \Carbon\Carbon::parse($dateInput)->format('Y-m-d') : null;
 
                     // 画像保存
-                    $images = $request->file("content_images.$i.$j", []);
+                    $images = $request->file("content_images.$i.$j") ?? [];
                     $paths = [];
                     foreach ($images as $img) {
                         $paths[] = $img->store("report_images", "public");
@@ -95,7 +113,7 @@ class ReportController extends Controller
                 }
             }
 
-            // 4. hearing_items の追加
+            // 3. hearing_items の追加
             $hearing = HearingSheet::findOrFail($request->input('hearing_sheet_id'));
 
             if ($request->has('new_investigation_items')) {
@@ -106,12 +124,10 @@ class ReportController extends Controller
                 }
             }
 
-            // 5. hearing_preinfos の追加
+            // 4. hearing_preinfos の追加
             $existingIds = $request->input('preinfo_ids', []);
-
             if ($request->has('preinfo_labels')) {
                 foreach ($request->input('preinfo_labels') as $i => $label) {
-                    // すでにIDがある場合はスキップ（＝既存）
                     if (!empty($existingIds[$i])) {
                         continue;
                     }
@@ -128,7 +144,7 @@ class ReportController extends Controller
                 }
             }
 
-            // 複数動画の保存処理
+            // 5. 複数動画の保存処理
             if ($request->hasFile('videos')) {
                 foreach ($request->file('videos') as $videoFile) {
                     if ($videoFile->isValid()) {
@@ -141,7 +157,10 @@ class ReportController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('report.create', ['id' => $request->input('hearing_sheet_id')])->with('success', '報告書を保存しました。');
+
+            return redirect()
+                ->route('report.create', ['id' => $request->input('hearing_sheet_id')])
+                ->with('success', '報告書を保存しました。');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -171,5 +190,22 @@ class ReportController extends Controller
         //     ->savePdf($pdfPath);
 
         // return response()->download($pdfPath);
+    }
+
+    public function publicForm($report_key)
+    {
+        $report = Report::where('report_key', $report_key)->firstOrFail();
+        return view('report.public_form', compact('report'));
+    }
+
+    public function publicView(Request $request, $report_key)
+    {
+        $report = Report::where('report_key', $report_key)->firstOrFail();
+
+        if ($request->input('access_key') !== $report->access_key) {
+            return back()->withErrors(['access_key' => 'アクセスキーが正しくありません。']);
+        }
+
+        return view('report.preview', compact('report'));
     }
 }

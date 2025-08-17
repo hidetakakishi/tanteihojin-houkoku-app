@@ -16,6 +16,7 @@ class Report extends Model
         'report_key',
         'hearing_sheet_id',
         'staff_comment',
+        'company_name',
     ];
 
     public function hearingSheet()
