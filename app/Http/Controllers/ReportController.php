@@ -73,42 +73,65 @@ class ReportController extends Controller
 
             $report->save();
 
-            // 2. 調査内容の保存
+            // 2. 調査内容（コンテンツ＆結果）
             foreach ($request->input('content_summary', []) as $i => $summary) {
                 $contentId = $request->input('content_ids')[$i] ?? null;
 
                 $reportContent = $contentId
-                    ? ReportContent::find($contentId) ?? new ReportContent()
+                    ? (ReportContent::find($contentId) ?? new ReportContent())
                     : new ReportContent();
 
                 $reportContent->report_id = $report->id;
-                $reportContent->summary = $summary;
+                $reportContent->summary   = $summary;
                 $reportContent->save();
 
+                // 各結果
                 foreach ($request->input("content_descriptions.$i", []) as $j => $description) {
                     $resultId = $request->input("result_ids.$i")[$j] ?? null;
 
                     $result = $resultId
-                        ? ReportResult::find($resultId) ?? new ReportResult()
+                        ? (ReportResult::find($resultId) ?? new ReportResult())
                         : new ReportResult();
 
                     $result->report_content_id = $reportContent->id;
-                    $result->description = $description;
+                    $result->description       = $description;
 
                     // 調査日
-                    $dateInput = $request->input("content_dates.$i")[$j] ?? null;
+                    $dateInput   = $request->input("content_dates.$i")[$j] ?? null;
                     $result->date = $dateInput ? \Carbon\Carbon::parse($dateInput)->format('Y-m-d') : null;
 
-                    // 画像保存
-                    $images = $request->file("content_images.$i.$j") ?? [];
-                    $paths = [];
-                    foreach ($images as $img) {
-                        $paths[] = $img->store("report_images", "public");
-                    }
-                    if (!empty($paths)) {
-                        $result->image_paths = $paths;
+                    // 既存画像配列（cast で array を想定）
+                    $current = is_array($result->image_paths) ? $result->image_paths : [];
+
+                    // --- 画像の削除（既存結果のみ） ---
+                    if ($resultId) {
+                        $deleteList = (array) $request->input("delete_images.$resultId", []);
+                        if (!empty($deleteList)) {
+                            foreach ($deleteList as $delPath) {
+                                // 物理削除
+                                Storage::disk('public')->delete($delPath);
+                                // 配列から除外
+                                $current = array_values(array_filter($current, fn($p) => $p !== $delPath));
+                            }
+                        }
                     }
 
+                    // --- 新規画像の追加 ---
+                    $newPaths = [];
+                    $files = $request->file("content_images.$i.$j", []);
+                    if (!empty($files)) {
+                        foreach ($files as $img) {
+                            if ($img && $img->isValid()) {
+                                $newPaths[] = $img->store('report_images', 'public');
+                            }
+                        }
+                    }
+                    if (!empty($newPaths)) {
+                        $current = array_merge($current, $newPaths);
+                    }
+
+                    // 配列をそのまま保存（全削除も反映）
+                    $result->image_paths = $current;
                     $result->save();
                 }
             }
@@ -124,34 +147,39 @@ class ReportController extends Controller
                 }
             }
 
-            // 4. hearing_preinfos の追加
+            // 4. hearing_preinfos（新規追加のみ・既存削除はしない）
             $existingIds = $request->input('preinfo_ids', []);
             if ($request->has('preinfo_labels')) {
                 foreach ($request->input('preinfo_labels') as $i => $label) {
-                    if (!empty($existingIds[$i])) {
-                        continue;
-                    }
+                    if (!empty($existingIds[$i])) { continue; }
 
-                    $value = $request->input('preinfo_values')[$i] ?? null;
-                    $image = $request->file('preinfo_images')[$i] ?? null;
+                    $value     = $request->input('preinfo_values')[$i] ?? null;
+                    $image     = $request->file('preinfo_images')[$i] ?? null;
                     $imagePath = $image ? $image->store('preinfo_images', 'public') : null;
 
                     $hearing->preinfos()->create([
-                        'label' => $label,
-                        'value' => $value,
+                        'label'      => $label,
+                        'value'      => $value,
                         'image_path' => $imagePath,
                     ]);
                 }
             }
 
-            // 5. 複数動画の保存処理
+            // 5. 動画の削除
+            foreach ((array) $request->input('delete_videos', []) as $videoId) {
+                $video = $report->videos()->find($videoId);
+                if ($video) {
+                    Storage::disk('public')->delete($video->video_path);
+                    $video->delete();
+                }
+            }
+
+            // 6. 動画の追加
             if ($request->hasFile('videos')) {
                 foreach ($request->file('videos') as $videoFile) {
                     if ($videoFile->isValid()) {
                         $path = $videoFile->store('report_videos', 'public');
-                        $report->videos()->create([
-                            'video_path' => $path
-                        ]);
+                        $report->videos()->create(['video_path' => $path]);
                     }
                 }
             }

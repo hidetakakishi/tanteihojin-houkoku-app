@@ -271,10 +271,21 @@ label { font-weight: 600; }
                                     <div class="mb-2">
                                         <label>画像</label>
                                         <input type="file" name="content_images[{{ $i }}][{{ $j }}][]" multiple onchange="previewImages(this)">
-                                        <div class="preview-area mt-2">
+                                        <div class="preview-area mt-2 d-flex flex-wrap gap-2">
                                             @if (!empty($result->image_paths))
-                                                @foreach ($result->image_paths as $img)
-                                                    <img src="{{ asset('storage/' . $img) }}" class="img-thumbnail me-2" style="max-height: 100px;">
+                                                @foreach ($result->image_paths as $idx => $img)
+                                                    <div class="position-relative me-2 mb-2" style="display:inline-block;">
+                                                        <img src="{{ asset('storage/' . $img) }}" class="img-thumbnail" style="max-height: 100px;">
+                                                        {{-- 既存画像の削除チェック（同じフォームで送る） --}}
+                                                        <div class="form-check mt-1 text-center">
+                                                            <input class="form-check-input" type="checkbox"
+                                                                name="delete_images[{{ $result->id }}][]" value="{{ $img }}"
+                                                                id="delimg_{{ $result->id }}_{{ $idx }}">
+                                                            <label class="form-check-label small" for="delimg_{{ $result->id }}_{{ $idx }}">
+                                                                この画像を削除
+                                                            </label>
+                                                        </div>
+                                                    </div>
                                                 @endforeach
                                             @endif
                                         </div>
@@ -328,14 +339,20 @@ label { font-weight: 600; }
                 <div class="mt-3">
                     @foreach ($report->videos as $index => $video)
                         <div class="video-block mb-3">
-                            <div class="video-title">動画{{ $index + 1 }}</div>
-                            <video controls playsinline preload="metadata">
-                                {{-- iOS/Androidの互換性を少しでも上げるため type は mp4 を先頭に --}}
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="video-title mb-0">動画{{ $index + 1 }}</div>
+                                {{-- 既存動画の削除チェック --}}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                        name="delete_videos[]" value="{{ $video->id }}"
+                                        id="delvid_{{ $video->id }}">
+                                    <label class="form-check-label small" for="delvid_{{ $video->id }}">
+                                        この動画を削除
+                                    </label>
+                                </div>
+                            </div>
+                            <video controls playsinline preload="metadata" class="mt-2">
                                 <source src="{{ asset('storage/' . $video->video_path) }}" type="video/mp4">
-                                {{-- 必要に応じて他形式を追加
-                                <source src="{{ asset('storage/' . $video->video_path_webm) }}" type="video/webm">
-                                <source src="{{ asset('storage/' . $video->video_path_mov) }}" type="video/quicktime">
-                                --}}
                                 ブラウザが video タグをサポートしていません。
                             </video>
                         </div>
